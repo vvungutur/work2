@@ -82,7 +82,7 @@ record_data() ->
 		{name, 6, 'steven doe'},		
 		{name, 7, 'sam doe'},		
 		{name, 8, 'sally doe'},		
-		{name, 9, 'shaniqua doe'},
+		{name, 9, 'agatha doe'},
 		{name, 10, 'vamsi vungutur'}		
 
 	].
