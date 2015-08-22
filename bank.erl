@@ -9,49 +9,63 @@ init_bank() ->
 
 	mnesia:create_schema([node()]),
 	mnesia:start(),
-	mnesia:create_table(bank, {[attributes, record_info(bank)]}),
+	mnesia:create_table(bank, {[attributes, record_info(fields, bank)]}),
 	mneisa:close().
 
 start_bank() ->
 	mneisa:start(),
 	mnesia:wait_for_tables([bank], 20000).
 
+close_bank() ->
+		mnesia:close().
+
+
 deposit(ID, AMT) ->
  
-	case check_account_exits(ID) of
+	case check_account_exists(ID) of
 	
-		{true, Bal} ->
+		{true, Account} ->
 
-			Write = fun() ->
-			[Curent] = mnesia:read(bank, ID),
-			Record = Current#bank{Current#bank.amt + AMT},
-			mnesia:write(Record) end,
-			mnesia:transaction(Write);
+			{ok, AMT, ReturnBalance} = give(Account, AMT),
+			{true, ID, ReturnBalnce};
 
-		false ->
+		_ ->
 		
-			Record = #bank(id = ID, amt = AMT ),
-			Write = fun() -> mnesia:write(Record) end,
+			AddRecord = #bank{id=ID, balance=AMT},
+			Write = fun() -> mnesia:write(AddRecord) end,
 			mnesia:transaction(Write)
 
 	end.
-
 
 withdraw(ID, AMT) ->
 		
 	case check_account_exists(ID) of
 
-		{true, Bal} ->
-				take(ID, AMT);
-		false -> 
+		{true, Account} ->
+			{OK, AMT, Balance, ReturnBalance} = take(Account, AMT),
+			{true, AMT, Balance, ReturnBalance};
+
+		_ -> 
 				id_not_found
 
 	end.
 
-check_account_exits(ID)  ->
-			
-		do(qlc:q([X#bank.balance || X <- mnesia:table(bank), X#bank.id =:= ID])).
+transfer(SID, REID, S_AMT) ->
 
+	case Withdraw(SID, AMT) of 
+		
+		{true, S_AMT, Balance, ReturnBalance} ->
+						deposit(REID, AMT),
+						io:format("~p just sent ~p, now has ~p, ~p had ~p, now has ~p, thank you.", [SID, ReturnBalance, REID, ]);
+
+		_ -> error
+
+
+
+check_account_exists(ID)  ->
+			
+			[Account] = mnesia:read(bank, ID),
+			{true, Account}.
 
 
 do(Query) ->
@@ -59,6 +73,58 @@ do(Query) ->
 		F = fun() -> qlc:e(Query) end,
 		mnesia:transaction(F).
 
+
+
+take(Account, AMT) ->
+
+	Balance = Account#bank.balance,
+
+	case Balance > AMT of
+	
+		
+		true ->
+			updateBalance(sub, Account, AMT),
+			ReturnBalance = Account#bank.balance,
+			{ok, AMT, Balance, ReturnBalance};
+
+		false ->
+			{nef, Balance}
+
+	end.
+
+give(Account, AMT) ->	
+		
+		updateBalance(add, Account, AMT),
+		ReturnBalance = Account#bank.balance,
+		{ok, AMT, ReturnBalance}.
+
+
+
+
+
+updateBalance(Action, Account, Amt) ->
+
+	case Action of 
+
+		add -> 	
+			UpdateAmount = Account#bank.balance + Amt;
+
+		sub ->
+			UpdateAmount = Account#bank.balance - Amt
+
+
+	end,
+
+	
+	Write = fun() -> UpdateRecord = Account#bank{balance=UpdateAmount},
+		 mnesia:write(UpdateRecord) end,
+		 mnesia:transaction(Write)
+	
+
+
+
+
+		
 
 record_data() ->
 	[
@@ -89,6 +155,6 @@ record_data() ->
 
 bulk_write() ->
 
-	F = fun() -> lists:foreach(fun mnesia:write/1, record_date()) end,
+	F = fun() -> lists:foreach(fun mnesia:write/1, record_data()) end,
 
 		mnesia:transaction(F).
